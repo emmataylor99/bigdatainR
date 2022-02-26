@@ -1,0 +1,192 @@
+---
+title: "Measures of Political Cynicism from the 2020 ANES"
+author: "Emma Taylor"
+date: "12/1/2021"
+output: html_document
+---
+```{r packages, include=FALSE, warning=FALSE}
+library(tidyverse)
+library(readr)
+library(Hmisc)
+```
+
+### Introduction
+
+This data comes from the 2020 American National Election Survey, which is a large national election survey carried out by a research center at the University of Michigan.
+
+I worked with this data to help a friend in the Political Science department, who needed to perform a statistical analysis on the data but did not know anything about statistical programming.
+
+This person wanted to examine how political cynicism impacts an individual's likelihood of voting, as well as how cycnicism affects their candidate preferences. 
+
+## Data Manipulation
+
+```{r data importing, include=FALSE, warning=FALSE}
+anes_timeseries_2020_csv_20210719 <- read_csv("C:/Users/emmat/OneDrive/Desktop/anes_timeseries_2020_csv_20210719.zip")
+df <- anes_timeseries_2020_csv_20210719
+```
+
+The ANES codes their variables in long strings of numbers, so we started by renaming each variable of interest to more illuminating titles. We did this for about 20 variables, each of which could be considered measures of political cynicism.
+
+```{r renaming variables, echo=TRUE}
+df <- rename(df, elites_trust = V202411) 
+```
+
+```{r rest of renaming, echo=FALSE}
+df <-rename(df, corruption = V202425)
+df <-rename(df, trust_gov = V201233) 
+df <-rename(df, fair_vote = V202219) 
+df <-rename(df, gov_performance = V202427)
+df <-rename(df, officials_not_care = V202212)
+df <-rename(df, elites_not_care = V202410) 
+df <-rename(df, politicians_care_rich = V202415)
+df <-rename(df, no_say_ingov = V202213)
+df <-rename(df, rural_urban = V202355)
+df <-rename(df, poli_interest = V202406) 
+df <-rename(df, elites_problem = V202412)
+df <-rename(df, democracy_satisfaction = V202440)
+df <-rename(df, gender = V201600)
+df <-rename(df, engagement = V202575)
+df <-rename(df, registration = V201018)
+df <-rename(df, primary = V201020)
+df <-rename(df, primary_choice = V201021)
+df <-rename(df, did_vote = V202066) 
+df <-rename(df, did_vote_pres = V202072)
+df <-rename(df, vote_choice_pres = V202073) 
+```
+
+The ANES data set contained over 1000 variables, so we selected the subset of variables that were necessary for this project.
+
+``` {r selecting subset, echo = TRUE}
+df1 <- select(df, vote_choice_pres, did_vote_pres, did_vote, primary, registration, gender, democracy_satisfaction, elites_problem, poli_interest, rural_urban, no_say_ingov, politicians_care_rich, elites_not_care, officials_not_care, gov_performance, fair_vote, trust_gov, corruption, elites_trust)
+```
+
+ANES is a survey that is administered by mail, online, and in person, so many observations had missing and incomplete data. Several questions in the survey also depend on the answers to other questions, so we filtered out observations with missing or inapplicable data. 
+
+My friend needed two separate data sets for their project: one that just included observations of voters (to test cynicism's effect on candidate choice), and one that included both voters and nonvoters (to test likelihood of voting). 
+
+#### Voters Data
+
+```{r creating a data set of just voters, echo=TRUE}
+voters <- filter(df1, vote_choice_pres>=0, did_vote_pres==1, did_vote==4, primary>=0, registration>=0, gender>=0, democracy_satisfaction>=0, elites_problem>=0, poli_interest>=0, rural_urban>=0, no_say_ingov>=0, politicians_care_rich>=0, elites_not_care>=0, officials_not_care>=0, gov_performance>=0, fair_vote>=0, trust_gov>=0, corruption>=0, elites_trust>=0)
+```
+
+#### Voters and Nonvoters Data
+
+```{r creating a data set to predict vote or not, echo=TRUE}
+voteornot <- select(df1, -vote_choice_pres, -did_vote_pres)
+voteornot <- filter(voteornot, did_vote >= -1, primary>=0, registration>=0,gender>=0, democracy_satisfaction>=0, elites_problem>=0, poli_interest>=0, rural_urban>=0, no_say_ingov>=0, politicians_care_rich>=0, elites_not_care>=0, officials_not_care>=0, gov_performance>=0, fair_vote>=0, trust_gov>=0, corruption>=0, elites_trust>=0)
+```
+
+My friend hoped to create two models on candidate choice: one that investigated the effect of cynicism on choosing to vote for a third-party candidate, and one to investigate how cynicism affects voting for an extremist candidate. In order to create both models, we duplicated the voter choice column and choose one column each to be the dependent variable for each model. 
+
+```{r creating a second voter choice column, echo=TRUE}
+voters <- voters %>% 
+  mutate(vote_choice_pres2 = vote_choice_pres)
+```
+
+Our next task was to replace values in our dependent variables to 0s and 1s, because my friend hoped to do three probit models. The ANES had 8 values for presidential choice, so each of those eight values were replaced with binary options. For example, the ANES coded voting for Joe Biden as 1, so that value was replaced with a 0, because Joe Biden was not a third party candidate.
+
+```{r replacing values in voters data frame, echo=TRUE}
+voters["vote_choice_pres"][voters["vote_choice_pres"] == 1] <- 0
+```
+
+```{r silent replacing, echo=FALSE}
+voters["vote_choice_pres"][voters["vote_choice_pres"] == 2] <- 0
+voters["vote_choice_pres"][voters["vote_choice_pres"] == 7] <- 0
+voters["vote_choice_pres"][voters["vote_choice_pres"] == 3] <- 1
+voters["vote_choice_pres"][voters["vote_choice_pres"] == 4] <- 1
+voters["vote_choice_pres"][voters["vote_choice_pres"] == 8] <- 1
+voters["vote_choice_pres"][voters["vote_choice_pres"] == 5] <- 1
+voters["vote_choice_pres"][voters["vote_choice_pres"] == 11] <- 1
+voters["vote_choice_pres"][voters["vote_choice_pres"] == 12] <- 1
+voters["vote_choice_pres2"][voters["vote_choice_pres2"] == 1] <- 0
+voters["vote_choice_pres2"][voters["vote_choice_pres2"] == 3] <- 1
+voters["vote_choice_pres2"][voters["vote_choice_pres2"] == 4] <- 1
+voters["vote_choice_pres2"][voters["vote_choice_pres2"] == 2] <- 1
+voters["vote_choice_pres2"][voters["vote_choice_pres2"] == 7] <- 1
+voters["vote_choice_pres2"][voters["vote_choice_pres2"] == 8] <- 1
+voters["vote_choice_pres2"][voters["vote_choice_pres2"] == 5] <- 1
+voters["vote_choice_pres2"][voters["vote_choice_pres2"] == 11] <- 1
+voters["vote_choice_pres2"][voters["vote_choice_pres2"] == 12] <- 1
+voteornot["did_vote"][voteornot["did_vote"] == 1] <- 0
+voteornot["did_vote"][voteornot["did_vote"] == 2] <- 0
+voteornot["did_vote"][voteornot["did_vote"] == 3] <- 0
+voteornot["did_vote"][voteornot["did_vote"] == -1] <- 1
+voteornot["did_vote"][voteornot["did_vote"] == 4] <- 1
+```
+
+``` {r dropping registration, echo=FALSE}
+voteornot1 <- select(voteornot, -registration)
+voters1 <- select(voters, -registration)
+```
+
+``` {r replacing gender and primary values, echo=FALSE}
+voteornot1["gender"][voteornot1["gender"] == 1] <- 0
+voteornot1["gender"][voteornot1["gender"] == 2] <- 1
+voters1["gender"][voters1["gender"] == 1] <- 0
+voters1["gender"][voters1["gender"] == 2] <- 1
+voteornot1["primary"][voteornot1["primary"] == 2] <- 0
+voters1["primary"][voters1["primary"] == 2] <- 0
+```
+
+## Data Summary
+
+Once we were certain that the data manipulation was complete, we collected some summary statistics:
+
+``` {r summaries of data frames, echo=TRUE, warning=FALSE}
+describe(voters1) %>% html()
+```
+
+## Data Visualization
+
+I was particularly interested in how interest in politics is associated with voting, so I created a box plot that compared the mean level of political disinterest for voters and nonvoters.
+
+``` {r plot on political interest and voting, echo=TRUE}
+voteinterestplot <- ggplot(voteornot1, aes(x=did_vote, y=poli_interest, group=did_vote)) +
+  geom_boxplot(fill="white") +
+  labs(x = 'Nonvoters vs. Voters', y='Level of Political Disinterest', title='Political Disinterest Amongst Nonvoters and Voters') +
+  stat_summary(fun=mean, geom="point", shape=8, size=5) +
+  theme_minimal()
+
+voteinterestplot
+```
+
+As expected, nonvoters have a higher average level of political disinterest than voters. However, I was fairly surprised by the fact that there were people who voted and yet also reported themselves as being entirely uninterested by politics.
+
+I also also intrigued by the relationship between third party voters and dissatisfaction with our democracy. Seemingly, voting third party is a strong rejection of modern American democracy, since it almost guarentees that your vote will be meaningless. 
+
+``` {r plot on third party and democracy satisfaction}
+thirdpartyplot <- ggplot(voters1, aes(x=vote_choice_pres, y=democracy_satisfaction, group=vote_choice_pres)) +
+  geom_boxplot(fill="white") +
+  labs(x = 'Mainstream Party Voters vs. Third Party Voters', y='Level of Dissatisfaction with Democracy', title='Political Dissatisfaction: Mainstream vs. Third Party') +
+  stat_summary(fun=mean, geom="point", shape=8, size=5) +
+  theme_minimal()
+
+thirdpartyplot
+```
+
+While the difference of means in this graph is much smaller, seemingly third party voters do have a higher level of political dissatisfaction than mainstream party voters. 
+
+## Preliminary Models
+
+Because my friend hoped to predict variables with binary outcomes, we needed to use a probit model. The first model uses our indepedent  variables to predict whether or not an individual would have voted in the 2020 election. The second model predicts whether or not individuals would have voted for a third party in the 2020 election.
+
+
+``` {r probit vote or not model, echo=TRUE}
+voteornotmodel <- glm(did_vote ~ primary + gender + democracy_satisfaction  + poli_interest + rural_urban + elites_not_care +  gov_performance + fair_vote +  corruption + elites_trust, family = binomial(link = "probit"), data = voteornot1)
+
+summary(voteornotmodel)
+```
+
+``` {r probit third part model, echo=TRUE}
+thirdpartymodel <- glm(vote_choice_pres ~ primary + gender + democracy_satisfaction  + poli_interest + rural_urban + elites_not_care + gov_performance + fair_vote + corruption + 
+elites_trust, family = binomial(link = "probit"), data = voters1)
+
+summary(thirdpartymodel)
+```
+
+Several variables in theses models are statistically significant, but my friend's paper results were not especially useful. They selected the variables that we used based on a political science theory called "The Five Elements of Political Cynicism", and in context of that theory, several of our variables had a sign that was opposite of what the theory predicted.
+
+### Conclusion
+
+Despite the underwhelming results, I improved my R skills by having to teach an entirely new subject to my friend, so this was still a worthwhile project for me!
