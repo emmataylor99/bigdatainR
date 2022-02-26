@@ -1,4 +1,4 @@
-### Political Cynicism Project by Rhys Chapman
+### Political Cynicism Project
 install.packages("car")
 install.packages("Hmisc")
 library(Hmisc)
